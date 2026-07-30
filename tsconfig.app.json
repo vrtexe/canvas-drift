@@ -22,5 +22,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "../other/old", "../other/lib copy"]
+  "include": ["src"]
 }
