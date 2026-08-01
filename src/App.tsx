@@ -3,10 +3,11 @@ import './App.css';
 import type { CanvasHandle } from './Canvas';
 import Canvas from './Canvas';
 import CanvasImg from './CanvasImg';
+import HtmlCanvas from './HtmlCanvas';
 import useLocalStorageImage from './localStorageImageHook';
 import useLocalStorage from './localStorageHook';
 
-type Tab = 'canvas' | 'img';
+type Tab = 'canvas' | 'img' | 'html';
 type Theme = (typeof Theme)[keyof typeof Theme];
 const Theme = Object.freeze({
   Light: 'light',
@@ -104,6 +105,11 @@ function App() {
           onClick={() => setTab('img')}>
           Img
         </button>
+        <button
+          className={`tab${tab === 'html' ? ' tab--active' : ''}`}
+          onClick={() => setTab('html')}>
+          Html
+        </button>
       </div>
 
       <div className="toolbar-row">
@@ -195,8 +201,10 @@ function App() {
 
       {tab === 'canvas' ? (
         <Canvas ref={handleRef} />
-      ) : (
+      ) : tab === 'img' ? (
         <CanvasImg ref={handleRef} />
+      ) : (
+        <HtmlCanvas ref={handleRef} />
       )}
     </>
   );
