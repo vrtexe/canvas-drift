@@ -225,17 +225,28 @@
   border: none;
   border-radius: 9px;
   padding: 8px 14px;
+  /* Every toolbar renders the same height regardless of its content
+     (the controls bar has 34px icon buttons; text-only tabs were shorter). */
+  box-sizing: border-box;
+  min-height: 34px;
   cursor: pointer;
+  /* Kill double-tap zoom on the controls so taps register instantly. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition:
     background 0.15s ease,
     color 0.15s ease,
     transform 0.1s ease;
 }
 
-.toolbar button:hover,
-.toolbar .upload-btn:hover {
-  background: var(--accent-bg);
-  color: var(--text-h);
+/* Hover styles only where a real hover pointer exists — on touch screens
+   :hover sticks after a tap and leaves buttons looking pressed. */
+@media (hover: hover) {
+  .toolbar button:hover,
+  .toolbar .upload-btn:hover {
+    background: var(--accent-bg);
+    color: var(--text-h);
+  }
 }
 
 .toolbar button:active,
@@ -357,4 +368,62 @@
 .dropdown-menu .dropdown-item--active:hover {
   background: var(--accent);
   color: #fff;
+}
+
+/* Bigger touch targets on touch devices (44px is the recommended minimum). */
+@media (pointer: coarse) {
+  .toolbar button,
+  .toolbar .upload-btn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+
+  .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .dropdown-item {
+    min-height: 44px;
+  }
+}
+
+/* Phone layout: tabs stay top-left, theme picker collapses to an icon
+   top-right, and the crowded controls toolbar moves to a thumb-reachable
+   bottom bar so the two top toolbars no longer collide. */
+@media (max-width: 640px) {
+  .toolbar--tabs {
+    top: max(12px, env(safe-area-inset-top));
+    left: max(12px, env(safe-area-inset-left));
+  }
+
+  /* Let the two toolbars inside the row position themselves independently. */
+  .toolbar-row {
+    display: contents;
+  }
+
+  .toolbar--theme {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+    z-index: 1000;
+  }
+
+  .toolbar--controls {
+    position: fixed;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    max-width: calc(100dvw - 24px);
+    overflow-x: auto;
+  }
+
+  .dropdown-label {
+    display: none;
+  }
+
+  .dropdown-trigger {
+    min-width: 0;
+  }
 }

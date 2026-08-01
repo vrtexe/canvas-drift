@@ -107,7 +107,7 @@ function App() {
       </div>
 
       <div className="toolbar-row">
-        <div className="toolbar">
+        <div className="toolbar toolbar--controls">
           <button
             className="icon-btn"
             title="Zoom in"
@@ -142,7 +142,7 @@ function App() {
           </button>
         </div>
 
-        <div className="toolbar">
+        <div className="toolbar toolbar--theme">
           <div className="dropdown" ref={themeRef}>
             <button
               className="dropdown-trigger"
@@ -151,7 +151,9 @@ function App() {
               onClick={() => setThemeOpen((o) => !o)}>
               <span className="dropdown-value">
                 <ThemeIcon theme={theme} />
-                {themeOptions.find((o) => o.value === theme)?.label}
+                <span className="dropdown-label">
+                  {themeOptions.find((o) => o.value === theme)?.label}
+                </span>
               </span>
               <svg
                 className="dropdown-caret"
