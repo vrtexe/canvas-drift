@@ -61,7 +61,7 @@ function HtmlCanvas({ ref }: HtmlCanvasProps) {
     const { scale, origin } = transform;
     img.style.width = `${width * scale}px`;
     img.style.height = `${height * scale}px`;
-    scroller.scrollTo(origin.x * scale * 2, origin.y * scale * 2);
+    scroller.scrollTo(origin.x * scale, origin.y * scale);
 
     if (syncingOrigin.current) return;
 
