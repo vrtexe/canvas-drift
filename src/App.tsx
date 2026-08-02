@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentType } from 'react';
 import './App.css';
 import type { CanvasHandle } from './Canvas';
 import Canvas from './Canvas';
@@ -6,8 +6,21 @@ import CanvasImg from './CanvasImg';
 import HtmlCanvas from './HtmlCanvas';
 import useLocalStorageImage from './localStorageImageHook';
 import useLocalStorage from './localStorageHook';
+import { CanvasDraw, type CanvasProps } from './Component';
 
 type Tab = 'canvas' | 'img' | 'html';
+const Tab = Object.freeze({
+  Canvas: 'canvas',
+  Img: 'img',
+  Html: 'html',
+} as const);
+
+const TabComponentMap: Record<Tab, ComponentType<CanvasProps>> = {
+  [Tab.Canvas]: CanvasDraw,
+  [Tab.Img]: CanvasImg,
+  [Tab.Html]: HtmlCanvas,
+} as const;
+
 type Theme = (typeof Theme)[keyof typeof Theme];
 const Theme = Object.freeze({
   Light: 'light',
@@ -92,22 +105,33 @@ function App() {
     }, 100);
   }
 
+  function updateTab(tab: Tab) {
+    setTab(tab);
+    // handleRef.current?.setFile(file);
+    // const elem = TabComponentMap[tab];
+    // elem && setComponent(elem);
+  }
+
+  // const [component, setComponent] = useState<
+  //   ComponentType<CanvasProps> | undefined
+  // >(undefined);
+
   return (
     <>
       <div className="toolbar toolbar--tabs">
         <button
           className={`tab${tab === 'canvas' ? ' tab--active' : ''}`}
-          onClick={() => setTab('canvas')}>
+          onClick={() => updateTab(Tab.Canvas)}>
           Canvas
         </button>
         <button
           className={`tab${tab === 'img' ? ' tab--active' : ''}`}
-          onClick={() => setTab('img')}>
+          onClick={() => updateTab(Tab.Img)}>
           Img
         </button>
         <button
           className={`tab${tab === 'html' ? ' tab--active' : ''}`}
-          onClick={() => setTab('html')}>
+          onClick={() => updateTab('html')}>
           Html
         </button>
       </div>
@@ -199,13 +223,9 @@ function App() {
         </div>
       </div>
 
-      {tab === 'canvas' ? (
-        <Canvas ref={handleRef} />
-      ) : tab === 'img' ? (
-        <CanvasImg ref={handleRef} />
-      ) : (
-        <HtmlCanvas ref={handleRef} />
-      )}
+      <div style={{ width: '100dvw', height: '100dvh', overflow: 'hidden' }}>
+        <Canvas ref={handleRef} canvas={TabComponentMap[tab]} />
+      </div>
     </>
   );
 }

@@ -1,67 +1,95 @@
-import { useEffect, useImperativeHandle, useRef, useState } from 'react';
-import type { Ref } from 'react';
+import { useCallback, useImperativeHandle, useRef, useState } from 'react';
 import styles from './Canvas.module.css';
-import useLib from './useLib';
 import useLocalStorage from './localStorageHook';
-import type { CanvasHandle } from './Canvas';
-import Viewport, { type ViewportRef } from './Viewport';
+import type { CanvasProps } from './Component';
+import { type Transform } from 'canvas-drift';
+import type { ViewportRef } from './Viewport';
 
-type CanvasImgProps = {
-  ref?: Ref<CanvasHandle>;
-  zoom?: { enabled?: boolean };
-  pan?: { enabled?: boolean };
-  defaultAspectRatio?: number;
-  className?: string;
-};
+type CanvasImgProps = CanvasProps;
 
-function CanvasImg({
-  ref,
-  zoom: zoomOpts = {},
-  pan: panOpts = {},
-}: CanvasImgProps) {
-  const { enabled: zoomEnabled = true } = zoomOpts as { enabled: boolean };
-  const { enabled: panEnabled = true } = panOpts as { enabled: boolean };
-
-  const viewportRef = useRef<ViewportRef>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
+function CanvasImg({ viewportRef, ref, lib }: CanvasImgProps) {
+  const canvasRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const idealScale = useRef(1);
 
-  const [isMoving, setIsMoving] = useState<boolean | null>(null);
   const [imageSrc, setImageSrc] = useLocalStorage<string | null>(
     'imageSrc',
     null,
   );
 
-  const lib = useLib({
-    viewport: () => viewportRef.current?.getRect() || null,
-    canvas: () => stageRef.current?.getBoundingClientRect() || null,
-    zoomEnabled,
-    panEnabled,
-    onIsMovingChange(value) {
-      setIsMoving(value);
-    },
-    onTransform(transform) {
-      setTransformStyle({
-        transform: `scale(${transform.scale}) translate(${-transform.origin.x}px, ${-transform.origin.y}px)`,
-      });
-    },
-  });
-
   const [transformStyle, setTransformStyle] = useState<React.CSSProperties>({
     transform: `scale(1) translate(0, 0)`,
   });
 
-  const stageStyle: React.CSSProperties = {
+  const draw = useCallback(
+    (transform?: Transform) => {
+      if (!transform) return;
+      setTransformStyle({
+        transform: `scale(${transform.scale}) translate(${-transform.origin.x}px, ${-transform.origin.y}px)`,
+      });
+    },
+    [setTransformStyle],
+  );
+
+  function updateSize() {
+    if (!canvasRef.current || !imgRef.current) return;
+    const { naturalWidth, naturalHeight } = imgRef.current;
+    canvasRef.current.style.width = `${naturalWidth * idealScale.current}px`;
+    canvasRef.current.style.height = `${naturalHeight * idealScale.current}px`;
+  }
+
+  const calculateIdealScale = useCallback(() => {
+    const viewportElement = viewportRef?.current;
+    if (!viewportElement || !imgRef.current) return 1;
+
+    const imgWidth = imgRef.current.naturalWidth;
+    const imgHeight = imgRef.current.naturalHeight;
+
+    return Math.min(
+      viewportElement.getClientWidth() / imgWidth,
+      viewportElement.getClientHeight() / imgHeight,
+    );
+  }, []);
+
+  function updateIdealScale() {
+    idealScale.current = calculateIdealScale();
+  }
+
+  function handleViewportResize(viewport?: ViewportRef | null) {
+    if (!viewport) return;
+
+    updateIdealScale();
+    updateSize();
+    redraw();
+  }
+
+  function onImageLoad() {
+    updateIdealScale();
+    updateSize();
+    redraw();
+  }
+
+  const redraw = useCallback(() => {
+    draw(lib?.stateService.getTransform());
+  }, [draw]);
+
+  const canvasStyle: React.CSSProperties = {
     ...transformStyle,
   };
 
-  // Center the stage once the initial layout is measured.
-  useEffect(() => {
-    const id = setTimeout(() => lib.reset(), 100);
-    return () => clearTimeout(id);
-  }, []);
-
   useImperativeHandle(ref, () => ({
+    draw,
+    redraw,
+    handleViewportResize,
+    clearImage: () => {
+      setImageSrc(null);
+    },
+    getImageRect: () => ({
+      x: canvasRef.current?.offsetLeft || 0,
+      y: canvasRef.current?.offsetTop || 0,
+      width: (imgRef.current?.naturalWidth || 0) * idealScale.current,
+      height: (imgRef.current?.naturalHeight || 0) * idealScale.current,
+    }),
     setFile: (file) => {
       if (!file) return;
 
@@ -69,45 +97,37 @@ function CanvasImg({
       reader.onload = () => setImageSrc(reader.result as string);
       reader.readAsDataURL(file);
     },
-    clearFile: () => {
-      setImageSrc(null);
-    },
-    zoomIn: () => lib.scaleService.zoomIn(),
-    zoomOut: () => lib.scaleService.zoomOut(),
-    center: () => lib.center(),
-    fit: () => lib.fit(),
+    zoomIn: () => lib?.scaleService.zoomIn(),
+    zoomOut: () => lib?.scaleService.zoomOut(),
+    center: () => lib?.center(),
+    fit: () => lib?.fit(),
   }));
 
   return (
-    <div style={{ width: '100dvw', height: '100dvh', overflow: 'hidden' }}>
-      <Viewport
-        ref={viewportRef}
-        lib={lib}
-        style={{ cursor: isMoving ? 'grabbing' : lib ? 'grab' : 'default' }}>
-        <div
-          className={`${styles.stage} ${styles.zoomLayer}`}
-          ref={stageRef}
-          style={stageStyle}>
-          {imageSrc && (
-            <img
-              ref={imgRef}
-              src={imageSrc}
-              alt="Office floor plan"
-              className={styles.officeImage}
-              draggable={false}
-            />
-          )}
-        </div>
-        {!imageSrc && (
-          <div className={styles.emptyState}>
-            <span className={styles.emptyStateTitle}>No image selected</span>
-            <span className={styles.emptyStateHint}>
-              Use the Upload button to add one
-            </span>
-          </div>
-        )}
-      </Viewport>
+    <div
+      className={`${styles.stage} ${styles.zoomLayer}`}
+      ref={canvasRef}
+      style={canvasStyle}>
+      {imageSrc && (
+        <img
+          ref={imgRef}
+          src={imageSrc}
+          className={styles.officeImage}
+          draggable={false}
+          onLoad={onImageLoad}
+        />
+      )}
     </div>
+    //     {!imageSrc && (
+    //       <div className={styles.emptyState}>
+    //         <span className={styles.emptyStateTitle}>No image selected</span>
+    //         <span className={styles.emptyStateHint}>
+    //           Use the Upload button to add one
+    //         </span>
+    //       </div>
+    //     )}
+    //   </Viewport>
+    // </div>
   );
 }
 

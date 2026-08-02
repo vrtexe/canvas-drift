@@ -9,8 +9,6 @@ import { createEngine } from 'canvas-drift';
 type LibOptions = {
   viewport: () => Rect | null;
   canvas: () => Rect | null;
-  zoomEnabled: boolean;
-  panEnabled: boolean;
   padding?: number;
   onTransform?: (transform: { origin: Point; scale: number }) => void;
   onIsMovingChange?: (isMoving: boolean) => void;

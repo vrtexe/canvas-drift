@@ -8,11 +8,9 @@ import type { ViewportRef } from './Viewport';
 
 export type CanvasRef = {
   getImageRect: () => Rect;
-  setImageBitmap: (imageBitmap: ImageBitmap | null) => void;
-  getCanvas: () => HTMLCanvasElement | null;
-  updateSize: (width: number, height: number) => void;
+  clearImage?: () => void;
+  handleViewportResize?: (viewport: ViewportRef) => void;
   setFile: (file: File | null) => void;
-  clearFile: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
   center: () => void;
@@ -21,7 +19,7 @@ export type CanvasRef = {
   redraw: () => void;
 };
 
-type CanvasProps = {
+export type CanvasProps = {
   viewportRef?: RefObject<ViewportRef | null>;
   ref?: Ref<CanvasRef>;
   lib?: LibHook;
@@ -37,7 +35,13 @@ const defaultCanvasStyles: React.CSSProperties = {
   width: '100%',
 };
 
-function Canvas({ viewportRef, ref, style, className, lib }: CanvasProps) {
+export function CanvasDraw({
+  viewportRef,
+  ref,
+  style,
+  className,
+  lib,
+}: CanvasProps) {
   const canvasStyles = {
     ...defaultCanvasStyles,
     ...style,
@@ -56,13 +60,14 @@ function Canvas({ viewportRef, ref, style, className, lib }: CanvasProps) {
     if (!imageBitmap || !offscreenCanvas.current) return;
 
     updateOffscreenCanvas(imageBitmap);
+    handleViewportResize(viewportRef?.current);
     updateIdealScale();
 
     draw(lib?.stateService.getTransform());
   }, [imageBitmap]);
 
   const draw = useCallback(
-    (transform: Transform | undefined) => {
+    (transform?: Transform) => {
       if (
         !canvasRef.current ||
         !offscreenCanvas.current ||
@@ -70,6 +75,7 @@ function Canvas({ viewportRef, ref, style, className, lib }: CanvasProps) {
         !imageBitmap
       )
         return;
+
       const canvas = canvasRef.current;
       const scale = transform.scale;
       const originX = transform.origin.x;
@@ -135,20 +141,23 @@ function Canvas({ viewportRef, ref, style, className, lib }: CanvasProps) {
     updateIdealScale();
   }
 
+  function handleViewportResize(viewport?: ViewportRef | null) {
+    if (!viewport) return;
+
+    updateSize(viewport.getWidth(), viewport.getHeight());
+    redraw();
+  }
+
   useImperativeHandle(ref, () => ({
     draw,
     redraw,
-    updateSize,
-    getCanvas: () => canvasRef.current,
-    setImageBitmap: (imageBitmap: ImageBitmap | null) => {
-      setImageBitmap(imageBitmap);
+    handleViewportResize,
+    clearImage: () => {
+      setImageBitmap(null);
     },
     setFile: async (file) => {
       if (!file) return;
       setImageBitmap(file ? await createImageBitmap(file) : null);
-    },
-    clearFile: () => {
-      setImageBitmap(null);
     },
     zoomIn: () => lib?.scaleService.zoomIn(),
     zoomOut: () => lib?.scaleService.zoomOut(),
@@ -169,4 +178,4 @@ function Canvas({ viewportRef, ref, style, className, lib }: CanvasProps) {
   return <canvas className={className} style={canvasStyles} ref={canvasRef} />;
 }
 
-export default Canvas;
+export default CanvasDraw;
