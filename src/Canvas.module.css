@@ -39,19 +39,22 @@
 
 /* Scroll-based implementation: a viewport-sized box that is scrolled
    programmatically. overflow:hidden still allows scrollTo(), so no scrollbar
-   styling is needed. flex + margin:auto centers the image while it is smaller
-   than the viewport; once it overflows, the auto margins resolve to 0 and the
-   whole image becomes reachable by scrolling. */
+   styling is needed. */
 .scroller {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  display: flex;
+}
+
+/* Sized by JS to scaled image + one viewport of slack on every side, so the
+   image can be panned fully off-screen. Centering comes from the engine
+   origin — negative origins map into the slack. */
+.scrollStage {
+  position: relative;
 }
 
 .scrollImage {
-  margin: auto;
-  flex: none;
+  position: absolute; /* placed by JS at (viewportW, viewportH) in the stage */
   display: block;
   pointer-events: none;
   user-select: none;

@@ -11,10 +11,12 @@ type HtmlCanvasProps = CanvasProps;
  * Zoom resizes the <img> element itself (the browser re-rasterizes at the
  * layout size, so it stays sharp — unlike transformed layers on Safari) and
  * pan is a programmatic scroll of an overflow:hidden box (an element does not
- * need visible scrollbars to be scrollable via scrollTo).
+ * need visible scrollbars to be scrollable via scrollTo). The stage carries a
+ * viewport of slack on every side so the image can be panned off-screen.
  */
 function HtmlCanvas({ viewportRef, ref, lib }: HtmlCanvasProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const idealScale = useRef(1);
   const syncingOrigin = useRef(false);
@@ -44,33 +46,49 @@ function HtmlCanvas({ viewportRef, ref, lib }: HtmlCanvasProps) {
   const draw = useCallback(
     (transform?: Transform) => {
       const scroller = scrollerRef.current;
+      const stage = canvasRef.current;
       const img = imgRef.current;
-      if (!transform || !scroller || !img?.naturalWidth) return;
+      const viewport = viewportRef?.current;
+      if (!transform || !scroller || !stage || !img?.naturalWidth || !viewport)
+        return;
 
       const { scale, origin } = transform;
-      img.style.width = `${img.naturalWidth * idealScale.current * scale}px`;
-      img.style.height = `${img.naturalHeight * idealScale.current * scale}px`;
-      scroller.scrollTo(origin.x * scale, origin.y * scale);
+      const width = img.naturalWidth * idealScale.current * scale;
+      const height = img.naturalHeight * idealScale.current * scale;
+
+      // One viewport of slack on every side of the image: the stage is
+      // scaled size + 2×viewport, so the image can be panned fully
+      // off-screen before the scroll range clamps. This also makes negative
+      // origins (image smaller than viewport, centered) representable as
+      // scroll positions.
+      const padX = viewport.getClientWidth();
+      const padY = viewport.getClientHeight();
+
+      stage.style.width = `${width + padX * 2}px`;
+      stage.style.height = `${height + padY * 2}px`;
+      img.style.width = `${width}px`;
+      img.style.height = `${height}px`;
+      img.style.left = `${padX}px`;
+      img.style.top = `${padY}px`;
+      scroller.scrollTo(padX + origin.x * scale, padY + origin.y * scale);
 
       if (syncingOrigin.current || !lib) return;
 
       // The browser clamps the scroll position to the scrollable range. Feed
-      // the clamped value back into the engine so its origin cannot drift past
-      // the edges (which would create a dead zone when panning back). Axes
-      // where the image fits inside the viewport keep the engine origin:
-      // scroll is pinned to 0 there and margin:auto does the centering.
-      const next = { ...lib.stateService.getOrigin() };
-      if (scroller.scrollWidth > scroller.clientWidth)
-        next.x = scroller.scrollLeft / scale;
-      if (scroller.scrollHeight > scroller.clientHeight)
-        next.y = scroller.scrollTop / scale;
+      // the clamped value back into the engine so its origin cannot drift
+      // past the padded range (which would create a dead zone when panning
+      // back).
+      const next = {
+        x: (scroller.scrollLeft - padX) / scale,
+        y: (scroller.scrollTop - padY) / scale,
+      };
       if (next.x !== origin.x || next.y !== origin.y) {
         syncingOrigin.current = true;
         lib.stateService.setOrigin(next);
         syncingOrigin.current = false;
       }
     },
-    [lib],
+    [lib, viewportRef],
   );
 
   const redraw = useCallback(() => {
@@ -84,7 +102,7 @@ function HtmlCanvas({ viewportRef, ref, lib }: HtmlCanvasProps) {
 
   function onImageLoad() {
     updateIdealScale();
-    lib?.fit();
+    redraw();
   }
 
   useImperativeHandle(ref, () => ({
@@ -118,14 +136,15 @@ function HtmlCanvas({ viewportRef, ref, lib }: HtmlCanvasProps) {
   return (
     <div className={styles.scroller} ref={scrollerRef}>
       {imageSrc && (
-        <img
-          ref={imgRef}
-          src={imageSrc}
-          alt="Office floor plan"
-          className={styles.scrollImage}
-          draggable={false}
-          onLoad={onImageLoad}
-        />
+        <div className={styles.scrollStage} ref={canvasRef}>
+          <img
+            ref={imgRef}
+            src={imageSrc}
+            className={styles.scrollImage}
+            draggable={false}
+            onLoad={onImageLoad}
+          />
+        </div>
       )}
     </div>
   );
