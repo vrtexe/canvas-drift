@@ -7,7 +7,7 @@ import {
 } from 'react';
 
 import type { LibHook } from './useGlideCanvas';
-import { attachEvent } from '../util/event';
+import { attachEvent } from './util/event';
 
 export type ViewportRef = {
   getElement: () => HTMLDivElement | null;

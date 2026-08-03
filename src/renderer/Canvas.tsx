@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import type { ViewportRef } from '../Viewport';
 import type { RendererConfig } from './base';
-import { useAsyncMemo } from '../../util/asyncMemo';
-import { createImageBitmapSafe } from '../../util/image';
+import { useAsyncMemo } from '../util/asyncMemo';
+import { createImageBitmapSafe } from '../util/image';
 import { type Transform } from 'canvas-drift';
 
 export type CanvasProps = RendererConfig;

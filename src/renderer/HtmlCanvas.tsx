@@ -1,8 +1,8 @@
 import { useCallback, useImperativeHandle, useRef } from 'react';
 import type { Transform } from 'canvas-drift';
 import type { RendererConfig } from './base';
-import { useAsyncMemo } from '../../util/asyncMemo';
-import { createImageDataUrlSafe } from '../../util/image';
+import { useAsyncMemo } from '../util/asyncMemo';
+import { createImageDataUrlSafe } from '../util/image';
 
 type HtmlCanvasProps = RendererConfig;
 

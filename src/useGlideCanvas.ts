@@ -5,7 +5,7 @@ import {
 } from 'react';
 import type { Point, Rect } from 'canvas-drift';
 import { createEngine } from 'canvas-drift';
-import { createConstrainer } from '../util/constraint';
+import { createConstrainer } from './util/constraint';
 import { useCallback } from 'react';
 
 export type LibOptions = {
