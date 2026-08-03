@@ -1,21 +1,44 @@
-import { useCallback, useImperativeHandle, useRef, useState } from 'react';
-import styles from './Canvas.module.css';
-import useLocalStorage from './localStorageHook';
-import type { CanvasProps } from './Component';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { type Transform } from 'canvas-drift';
-import type { ViewportRef } from './Viewport';
+import type { ViewportRef } from '../Viewport';
+import type { RendererConfig } from './base';
+import { useAsyncMemo } from '../util/asyncMemo';
+import { createImageDataUrlSafe } from '../util/image';
 
-type CanvasImgProps = CanvasProps;
+export type CanvasImgProps = RendererConfig;
 
-function CanvasImg({ viewportRef, ref, lib }: CanvasImgProps) {
+const defaultImageCanvasStyle: React.CSSProperties = Object.freeze({
+  transformOrigin: 'top left',
+});
+
+const defaultImageStyle: React.CSSProperties = {
+  display: 'block',
+  height: '100%',
+  width: '100%',
+};
+
+export function ImageCanvas({
+  viewportRef,
+  ref,
+  lib,
+  image,
+  style,
+  className,
+}: CanvasImgProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const idealScale = useRef(1);
 
-  const [imageSrc, setImageSrc] = useLocalStorage<string | null>(
-    'imageSrc',
-    null,
-  );
+  const [imageVisibility, setImageVisibility] =
+    useState<React.CSSProperties['visibility']>('hidden');
+
+  const imageSrc = useAsyncMemo(() => createImageDataUrlSafe(image), [image]);
 
   const [transformStyle, setTransformStyle] = useState<React.CSSProperties>({
     transform: `scale(1) translate(0, 0)`,
@@ -31,12 +54,12 @@ function CanvasImg({ viewportRef, ref, lib }: CanvasImgProps) {
     [setTransformStyle],
   );
 
-  function updateSize() {
+  const updateSize = useCallback(() => {
     if (!canvasRef.current || !imgRef.current) return;
     const { naturalWidth, naturalHeight } = imgRef.current;
     canvasRef.current.style.width = `${naturalWidth * idealScale.current}px`;
     canvasRef.current.style.height = `${naturalHeight * idealScale.current}px`;
-  }
+  }, []);
 
   const calculateIdealScale = useCallback(() => {
     const viewportElement = viewportRef?.current;
@@ -67,68 +90,58 @@ function CanvasImg({ viewportRef, ref, lib }: CanvasImgProps) {
     updateIdealScale();
     updateSize();
     redraw();
+    setImageVisibility('visible');
   }
+
+  // Data-URL/cached images can finish loading before React attaches the
+  // onLoad listener — the event is then never delivered and the image would
+  // stay hidden. Run the load handler manually when already complete.
+  useEffect(() => {
+    if (imgRef.current?.complete && imgRef.current.naturalWidth) {
+      onImageLoad();
+    }
+  }, [imageSrc]);
 
   const redraw = useCallback(() => {
     draw(lib?.stateService.getTransform());
   }, [draw]);
 
   const canvasStyle: React.CSSProperties = {
+    ...defaultImageCanvasStyle,
     ...transformStyle,
+    ...style,
   };
 
   useImperativeHandle(ref, () => ({
     draw,
     redraw,
     handleViewportResize,
-    clearImage: () => {
-      setImageSrc(null);
-    },
     getImageRect: () => ({
       x: canvasRef.current?.offsetLeft || 0,
       y: canvasRef.current?.offsetTop || 0,
       width: (imgRef.current?.naturalWidth || 0) * idealScale.current,
       height: (imgRef.current?.naturalHeight || 0) * idealScale.current,
     }),
-    setFile: (file) => {
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = () => setImageSrc(reader.result as string);
-      reader.readAsDataURL(file);
-    },
     zoomIn: () => lib?.scaleService.zoomIn(),
     zoomOut: () => lib?.scaleService.zoomOut(),
     center: () => lib?.center(),
     fit: () => lib?.fit(),
   }));
 
+  const imageStyle: React.CSSProperties = {
+    ...defaultImageStyle,
+    visibility: imageVisibility,
+  };
   return (
-    <div
-      className={`${styles.stage} ${styles.zoomLayer}`}
-      ref={canvasRef}
-      style={canvasStyle}>
-      {imageSrc && (
-        <img
-          ref={imgRef}
-          src={imageSrc}
-          className={styles.officeImage}
-          draggable={false}
-          onLoad={onImageLoad}
-        />
-      )}
+    <div ref={canvasRef} className={className} style={canvasStyle}>
+      <img
+        hidden={!imageSrc}
+        style={imageStyle}
+        ref={imgRef}
+        src={imageSrc || undefined}
+        draggable={false}
+        onLoad={onImageLoad}
+      />
     </div>
-    //     {!imageSrc && (
-    //       <div className={styles.emptyState}>
-    //         <span className={styles.emptyStateTitle}>No image selected</span>
-    //         <span className={styles.emptyStateHint}>
-    //           Use the Upload button to add one
-    //         </span>
-    //       </div>
-    //     )}
-    //   </Viewport>
-    // </div>
   );
 }
-
-export default CanvasImg;

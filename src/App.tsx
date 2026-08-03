@@ -1,24 +1,27 @@
-import { useEffect, useRef, useState, type ComponentType } from 'react';
 import './App.css';
-import type { CanvasHandle } from './Canvas';
-import Canvas from './Canvas';
-import CanvasImg from './CanvasImg';
-import HtmlCanvas from './HtmlCanvas';
-import useLocalStorageImage from './localStorageImageHook';
-import useLocalStorage from './localStorageHook';
-import { CanvasDraw, type CanvasProps } from './Component';
+import { useEffect, useRef, useState } from 'react';
+import { Renderer, type GlideCanvasHandle } from './GlideCanvas';
+import { GlideCanvas } from './GlideCanvas';
+import { useLocalStorageBlob } from './localStorageBlobHook';
 
-type Tab = 'canvas' | 'img' | 'html';
+type Tab = (typeof Tab)[keyof typeof Tab];
 const Tab = Object.freeze({
   Canvas: 'canvas',
   Img: 'img',
   Html: 'html',
 } as const);
+const TabValues: Tab[] = Object.values(Tab);
 
-const TabComponentMap: Record<Tab, ComponentType<CanvasProps>> = {
-  [Tab.Canvas]: CanvasDraw,
-  [Tab.Img]: CanvasImg,
-  [Tab.Html]: HtmlCanvas,
+const TabComponentMap: Record<Tab, Renderer> = {
+  [Tab.Canvas]: Renderer.Canvas,
+  [Tab.Img]: Renderer.Image,
+  [Tab.Html]: Renderer.Html,
+} as const;
+
+const TabLabel: Record<Tab, string> = {
+  [Tab.Canvas]: 'Canvas',
+  [Tab.Img]: 'Image',
+  [Tab.Html]: 'html',
 } as const;
 
 type Theme = (typeof Theme)[keyof typeof Theme];
@@ -43,20 +46,14 @@ function getInitialTheme(): Theme {
 
 function App() {
   const [tab, setTab] = useState<Tab>('canvas');
-  const [file, setFile] = useState<File | null>(null);
+  const [file, setFile] = useLocalStorageBlob<File | null>('file', null);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const [themeOpen, setThemeOpen] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
-  const handleRef = useRef<CanvasHandle>(null);
+  const handleRef = useRef<GlideCanvasHandle>(null);
 
-  const [, setImageBitmap] = useLocalStorageImage<ImageBitmap | null>(
-    'imageBitmap',
-    null,
-  );
-  const [, setImageSrc] = useLocalStorage<string | null>('imageSrc', null);
   useEffect(() => {
-    // 'auto' defers to the OS preference by removing the explicit override.
     if (theme === Theme.Auto) {
       document.documentElement.removeAttribute('data-theme');
     } else {
@@ -65,75 +62,25 @@ function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  useEffect(() => {
-    if (!themeOpen) return;
-    function onPointerDown(e: PointerEvent) {
-      if (!themeRef.current?.contains(e.target as Node)) setThemeOpen(false);
-    }
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [themeOpen]);
-
-  // Push the current file onto the freshly shown component after a tab switch.
-  const firstRender = useRef(true);
-  useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
-    handleRef.current?.setFile(file);
-    handleRef.current?.fit();
-  }, [tab]);
-
   async function upload(next: File | null) {
     setFile(next);
-    handleRef.current?.setFile(next);
-
-    if (next) {
-      setImageBitmap(await createImageBitmap(next));
-      const reader = new FileReader();
-      reader.onload = () => setImageSrc(reader.result as string);
-      reader.readAsDataURL(next);
-    } else {
-      setImageBitmap(null);
-      setImageSrc(null);
-      handleRef.current?.clearFile();
-    }
-
-    setTimeout(() => {
-      handleRef.current?.fit();
-    }, 100);
   }
 
   function updateTab(tab: Tab) {
     setTab(tab);
-    // handleRef.current?.setFile(file);
-    // const elem = TabComponentMap[tab];
-    // elem && setComponent(elem);
   }
-
-  // const [component, setComponent] = useState<
-  //   ComponentType<CanvasProps> | undefined
-  // >(undefined);
 
   return (
     <>
       <div className="toolbar toolbar--tabs">
-        <button
-          className={`tab${tab === 'canvas' ? ' tab--active' : ''}`}
-          onClick={() => updateTab(Tab.Canvas)}>
-          Canvas
-        </button>
-        <button
-          className={`tab${tab === 'img' ? ' tab--active' : ''}`}
-          onClick={() => updateTab(Tab.Img)}>
-          Img
-        </button>
-        <button
-          className={`tab${tab === 'html' ? ' tab--active' : ''}`}
-          onClick={() => updateTab('html')}>
-          Html
-        </button>
+        {TabValues.map((t) => (
+          <button
+            key={`tab-button-${t}`}
+            className={`tab${t === tab ? ' tab--active' : ''}`}
+            onClick={() => updateTab(t)}>
+            {TabLabel[t]}
+          </button>
+        ))}
       </div>
 
       <div className="toolbar-row">
@@ -224,7 +171,11 @@ function App() {
       </div>
 
       <div style={{ width: '100dvw', height: '100dvh', overflow: 'hidden' }}>
-        <Canvas ref={handleRef} canvas={TabComponentMap[tab]} />
+        <GlideCanvas
+          ref={handleRef}
+          renderer={TabComponentMap[tab]}
+          image={file}
+        />
       </div>
     </>
   );

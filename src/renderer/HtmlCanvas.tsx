@@ -1,10 +1,11 @@
 import { useCallback, useImperativeHandle, useRef } from 'react';
-import styles from './Canvas.module.css';
-import useLocalStorage from './localStorageHook';
-import type { CanvasProps } from './Component';
+import styles from '../Canvas.module.css';
 import type { Transform } from 'canvas-drift';
+import type { RendererConfig } from './base';
+import { useAsyncMemo } from '../util/asyncMemo';
+import { createImageDataUrlSafe } from '../util/image';
 
-type HtmlCanvasProps = CanvasProps;
+type HtmlCanvasProps = RendererConfig;
 
 /**
  * Scroll-based renderer: no CSS transforms and no <canvas>.
@@ -14,17 +15,14 @@ type HtmlCanvasProps = CanvasProps;
  * need visible scrollbars to be scrollable via scrollTo). The stage carries a
  * viewport of slack on every side so the image can be panned off-screen.
  */
-function HtmlCanvas({ viewportRef, ref, lib }: HtmlCanvasProps) {
+export function HtmlCanvas({ viewportRef, ref, lib, image }: HtmlCanvasProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const idealScale = useRef(1);
   const syncingOrigin = useRef(false);
 
-  const [imageSrc, setImageSrc] = useLocalStorage<string | null>(
-    'imageSrc',
-    null,
-  );
+  const imageSrc = useAsyncMemo(() => createImageDataUrlSafe(image), [image]);
 
   const calculateIdealScale = useCallback(() => {
     const viewportElement = viewportRef?.current;
@@ -109,45 +107,47 @@ function HtmlCanvas({ viewportRef, ref, lib }: HtmlCanvasProps) {
     draw,
     redraw,
     handleViewportResize,
-    clearImage: () => {
-      setImageSrc(null);
-    },
-    // The unscaled scale-1 frame, mirroring CanvasDraw — never a scaled
-    // bounding rect, which would feed zoomed sizes to the engine.
     getImageRect: () => ({
       x: scrollerRef.current?.offsetLeft || 0,
       y: scrollerRef.current?.offsetTop || 0,
       width: (imgRef.current?.naturalWidth || 0) * idealScale.current,
       height: (imgRef.current?.naturalHeight || 0) * idealScale.current,
     }),
-    setFile: (file) => {
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = () => setImageSrc(reader.result as string);
-      reader.readAsDataURL(file);
-    },
     zoomIn: () => lib?.scaleService.zoomIn(),
     zoomOut: () => lib?.scaleService.zoomOut(),
     center: () => lib?.center(),
     fit: () => lib?.fit(),
   }));
 
+  const scrollerStyle: React.CSSProperties = {
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+  };
+
+  const scrollCanvasStyle: React.CSSProperties = {
+    position: 'relative',
+  };
+
+  const imageStyle: React.CSSProperties = {
+    position: 'absolute',
+    display: 'block',
+    pointerEvents: 'none',
+    userSelect: 'none',
+  };
+
   return (
-    <div className={styles.scroller} ref={scrollerRef}>
-      {imageSrc && (
-        <div className={styles.scrollStage} ref={canvasRef}>
-          <img
-            ref={imgRef}
-            src={imageSrc}
-            className={styles.scrollImage}
-            draggable={false}
-            onLoad={onImageLoad}
-          />
-        </div>
-      )}
+    <div style={scrollerStyle} ref={scrollerRef}>
+      <div style={scrollCanvasStyle} ref={canvasRef}>
+        <img
+          ref={imgRef}
+          src={imageSrc || undefined}
+          style={imageStyle}
+          className={styles.scrollImage}
+          draggable={false}
+          onLoad={onImageLoad}
+        />
+      </div>
     </div>
   );
 }
-
-export default HtmlCanvas;

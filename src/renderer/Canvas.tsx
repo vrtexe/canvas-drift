@@ -1,31 +1,11 @@
 import { useCallback, useEffect, useImperativeHandle, useRef } from 'react';
-import type { Ref, RefObject } from 'react';
-import useLocalStorageImage from './localStorageImageHook';
-import type { Transform } from './lib/engine';
-import type { LibHook } from './useLib';
-import type { Rect } from './lib/pointUtils';
-import type { ViewportRef } from './Viewport';
+import type { Transform } from '../lib/engine';
+import type { ViewportRef } from '../Viewport';
+import type { RendererConfig } from './base';
+import { useAsyncMemo } from '../util/asyncMemo';
+import { createImageBitmapSafe } from '../util/image';
 
-export type CanvasRef = {
-  getImageRect: () => Rect;
-  clearImage?: () => void;
-  handleViewportResize?: (viewport: ViewportRef) => void;
-  setFile: (file: File | null) => void;
-  zoomIn: () => void;
-  zoomOut: () => void;
-  center: () => void;
-  fit: () => void;
-  draw: (transform?: Transform) => void;
-  redraw: () => void;
-};
-
-export type CanvasProps = {
-  viewportRef?: RefObject<ViewportRef | null>;
-  ref?: Ref<CanvasRef>;
-  lib?: LibHook;
-  className?: string;
-  style?: React.CSSProperties;
-};
+export type CanvasProps = RendererConfig;
 
 const defaultCanvasStyles: React.CSSProperties = {
   position: 'absolute',
@@ -35,10 +15,11 @@ const defaultCanvasStyles: React.CSSProperties = {
   width: '100%',
 };
 
-export function CanvasDraw({
+export function Canvas({
   viewportRef,
   ref,
   style,
+  image,
   className,
   lib,
 }: CanvasProps) {
@@ -47,8 +28,7 @@ export function CanvasDraw({
     ...style,
   };
 
-  const [imageBitmap, setImageBitmap] =
-    useLocalStorageImage<ImageBitmap | null>('imageBitmap', null);
+  const imageBitmap = useAsyncMemo(() => createImageBitmapSafe(image), [image]);
 
   const idealScale = useRef(1);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -121,6 +101,10 @@ export function CanvasDraw({
     [offscreenCanvas],
   );
 
+  function updateIdealScale() {
+    idealScale.current = calculateIdealScale();
+  }
+
   const calculateIdealScale = useCallback(() => {
     const viewportElement = viewportRef?.current;
     if (!viewportElement) return 1;
@@ -152,13 +136,6 @@ export function CanvasDraw({
     draw,
     redraw,
     handleViewportResize,
-    clearImage: () => {
-      setImageBitmap(null);
-    },
-    setFile: async (file) => {
-      if (!file) return;
-      setImageBitmap(file ? await createImageBitmap(file) : null);
-    },
     zoomIn: () => lib?.scaleService.zoomIn(),
     zoomOut: () => lib?.scaleService.zoomOut(),
     center: () => lib?.center(),
@@ -171,11 +148,7 @@ export function CanvasDraw({
     }),
   }));
 
-  function updateIdealScale() {
-    idealScale.current = calculateIdealScale();
-  }
-
   return <canvas className={className} style={canvasStyles} ref={canvasRef} />;
 }
 
-export default CanvasDraw;
+export default Canvas;

@@ -1,5 +1,5 @@
 /* Viewport: clipping box that owns the responsive layout. */
-.viewport {
+/* .viewport {
   width: 100%;
   height: 100%;
   position: relative;
@@ -12,55 +12,55 @@
   touch-action: none;
   overscroll-behavior: contain;
   will-change: auto;
-}
+} */
 
 /* Zoom/translate layer: transformed inline (top-left origin). */
-.zoomLayer {
-  transform-origin: top left;
-}
+/* .zoomLayer {
+  transform-origin: top left; */
+/* } */
 
 /* Stage: sized via JS to fit viewport while preserving the image AR. Desks
    are positioned in % inside this box, so they stay proportional everywhere. */
-.stage {
-  position: relative;
-  display: block;
-  will-change: auto;
-}
+/* .stage { */
+/* position: relative; */
+/* display: block; */
+/* will-change: auto; */
+/* } */
 
-.officeImage {
-  display: block;
+/* .officeImage { */
+/* display: block;
   width: 100%;
-  height: 100%;
-  border-radius: 8px;
-  pointer-events: none;
-  user-select: none;
-  will-change: auto;
-}
+  height: 100%; */
+/* border-radius: 8px; */
+/* pointer-events: none; */
+/* user-select: none; */
+/* will-change: auto; */
+/* } */
 
 /* Scroll-based implementation: a viewport-sized box that is scrolled
    programmatically. overflow:hidden still allows scrollTo(), so no scrollbar
    styling is needed. */
-.scroller {
+/* .scroller {
   width: 100%;
   height: 100%;
   overflow: hidden;
-}
+} */
 
 /* Sized by JS to scaled image + one viewport of slack on every side, so the
    image can be panned fully off-screen. Centering comes from the engine
    origin — negative origins map into the slack. */
-.scrollStage {
+/* .scrollStage {
   position: relative;
-}
+} */
 
-.scrollImage {
-  position: absolute; /* placed by JS at (viewportW, viewportH) in the stage */
+/* .scrollImage {
+  position: absolute;
   display: block;
   pointer-events: none;
   user-select: none;
-}
+} */
 
-.loadingOverlay {
+/* .loadingOverlay {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -73,9 +73,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
+} */
 
-.emptyState {
+/* .emptyState {
   position: absolute;
   inset: 0;
   display: flex;
@@ -87,21 +87,21 @@
   padding: 24px;
   pointer-events: none;
   color: var(--text, #6b6375);
-}
+} */
 
-.emptyStateTitle {
+/* .emptyStateTitle {
   font-size: 18px;
   font-weight: 600;
   color: var(--text-h, #08060d);
-}
+} */
 
-.emptyStateHint {
+/* .emptyStateHint {
   font-size: 14px;
   opacity: 0.8;
-}
+} */
 
 /* Zoom controls */
-.zoomControls {
+/* .zoomControls {
   position: absolute;
   bottom: 16px;
   left: 16px;
@@ -116,18 +116,18 @@
   border: 1px solid rgba(226, 232, 240, 0.8);
   z-index: 100;
   transition: right 0.2s ease;
-}
+} */
 
 /* Slide the toolbar left of the desk sidebar overlay when it is open.
    296px = 280px sidebar width (.sideBarColumn in DisplayPanel.module.css) + 16px gap.
    Only needed at >=992px; below that the sidebar is a bottom-sheet drawer. */
-@media (min-width: 992px) {
+/* @media (min-width: 992px) {
   .zoomControlsShifted {
     right: 296px;
   }
-}
+} */
 
-.zoomButton {
+/* .zoomButton {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -168,11 +168,11 @@
   height: 24px;
   background: var(--color-border);
   margin: 0 2px;
-}
+} */
 
 /* On small screens shrink the chrome a bit; the stage itself is already
    responsive via the JS sizing so no width workarounds are needed. */
-@media (max-width: 768px) {
+/* @media (max-width: 768px) {
   .zoomControls {
     bottom: 10px;
     left: 10px;
@@ -188,4 +188,4 @@
     min-width: 38px;
     font-size: 12px;
   }
-}
+} */

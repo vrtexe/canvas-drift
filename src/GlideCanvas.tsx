@@ -1,38 +1,60 @@
 import { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { ComponentType, Ref } from 'react';
 import useLib from './useLib';
-import Viewport, { type ViewportRef } from './Viewport';
-import {
-  type CanvasRef,
+import { Viewport, type ViewportRef } from './Viewport';
+import Canvas, {
   type CanvasProps as CanvasComponentProps,
-} from './Component';
-import CanvasImg from './CanvasImg';
+  type CanvasProps,
+} from './renderer/Canvas';
+import { ImageCanvas } from './renderer/ImageCanvas';
+import { HtmlCanvas } from './renderer/HtmlCanvas';
+import type { CanvasRef } from './renderer/base';
 
-export type CanvasHandle = {
-  setFile: (file: File | null) => void;
-  clearFile: () => void;
+export type Renderer = (typeof Renderer)[keyof typeof Renderer];
+export const Renderer = Object.freeze({
+  Canvas: 'canvas',
+  Image: 'image',
+  Html: 'html',
+} as const);
+
+export const RendererComponentMap: Record<
+  Renderer,
+  ComponentType<CanvasProps>
+> = Object.freeze({
+  [Renderer.Canvas]: Canvas,
+  [Renderer.Image]: ImageCanvas,
+  [Renderer.Html]: HtmlCanvas,
+} as const);
+
+export type GlideCanvasHandle = {
   zoomIn: () => void;
   zoomOut: () => void;
   center: () => void;
   fit: () => void;
 };
 
-type CanvasProps = {
-  ref?: Ref<CanvasHandle>;
+export type GlideCanvasProps = {
+  ref?: Ref<GlideCanvasHandle>;
   zoom?: { enabled?: boolean };
   pan?: { enabled?: boolean };
   className?: string;
+  renderer?: Renderer;
+  image?: Blob | null;
 
   canvas?: ComponentType<CanvasComponentProps>;
 };
 
-function Canvas({
+export function GlideCanvas({
   ref,
   className = '',
-  canvas: CanvasComponent = CanvasImg,
-}: CanvasProps) {
+  image,
+  renderer = Renderer.Canvas,
+  canvas: CustomCanvas,
+}: GlideCanvasProps) {
   const viewportRef = useRef<ViewportRef>(null);
   const canvasRef = useRef<CanvasRef>(null);
+
+  const Renderer = RendererComponentMap[renderer];
 
   const [isMoving, setIsMoving] = useState(false);
 
@@ -57,8 +79,6 @@ function Canvas({
   }, []);
 
   useImperativeHandle(ref, () => ({
-    setFile: (file) => canvasRef.current?.setFile(file),
-    clearFile: () => canvasRef.current?.clearImage?.(),
     zoomIn: () => lib.scaleService.zoomIn(),
     zoomOut: () => lib.scaleService.zoomOut(),
     center: () => lib.center(),
@@ -74,9 +94,27 @@ function Canvas({
         cursor: isMoving ? 'grabbing' : lib ? 'grab' : 'default',
       }}
       onResize={onViewportResize}>
-      <CanvasComponent viewportRef={viewportRef} ref={canvasRef} lib={lib} />
+      {CustomCanvas ? (
+        <CustomCanvas />
+      ) : (
+        <Renderer
+          viewportRef={viewportRef}
+          ref={canvasRef}
+          lib={lib}
+          image={image}
+        />
+      )}
     </Viewport>
   );
 }
 
-export default Canvas;
+//     {!imageSrc && (
+//       <div className={styles.emptyState}>
+//         <span className={styles.emptyStateTitle}>No image selected</span>
+//         <span className={styles.emptyStateHint}>
+//           Use the Upload button to add one
+//         </span>
+//       </div>
+//     )}
+//   </Viewport>
+// </div>

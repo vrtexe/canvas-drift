@@ -5,11 +5,14 @@ import {
 } from 'react';
 import type { Point, Rect } from 'canvas-drift';
 import { createEngine } from 'canvas-drift';
+import { createConstrainer } from './util/constraint';
+import { useCallback } from 'react';
 
 type LibOptions = {
   viewport: () => Rect | null;
   canvas: () => Rect | null;
   padding?: number;
+  constrainOrigin?: (origin: Point) => Point;
   onTransform?: (transform: { origin: Point; scale: number }) => void;
   onIsMovingChange?: (isMoving: boolean) => void;
 };
@@ -61,10 +64,20 @@ export type LibHook = {
 export default function useLib({
   viewport,
   canvas,
+  constrainOrigin,
   onIsMovingChange,
   onTransform,
 }: LibOptions): LibHook {
   const engineRef = useRef<ReturnType<typeof createEngine> | null>(null);
+
+  const constrainer = useCallback(
+    createConstrainer({
+      getCanvasRect: canvas,
+      getViewportRect: viewport,
+      getScale: () => engine.stateService.getScale(),
+    }),
+    [canvas, viewport],
+  );
 
   if (engineRef.current === null) {
     engineRef.current = createEngine({
@@ -73,6 +86,14 @@ export default function useLib({
       },
       viewport: viewport,
       canvas: canvas,
+      constraints: constrainOrigin
+        ? {
+            origin: {
+              enabled: true,
+              constrain: constrainer,
+            },
+          }
+        : undefined,
       state: {
         onTransformChange: (transform) => onTransform?.(transform),
       },

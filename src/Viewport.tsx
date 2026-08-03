@@ -7,6 +7,7 @@ import {
 } from 'react';
 
 import type { LibHook } from './useLib';
+import { attachEvent } from './util/event';
 
 export type ViewportRef = {
   getElement: () => HTMLDivElement | null;
@@ -78,7 +79,7 @@ export function Viewport({
 
   useEffect(() => {
     if (lib?.onWheel === undefined || wheelEnabled === false) return;
-    return attachEvent(elementRef.current, lib.onWheel);
+    return attachEvent(elementRef.current, lib.onWheel, { passive: false });
   }, [lib?.onWheel]);
 
   useEffect(() => {
@@ -116,18 +117,3 @@ export function Viewport({
     </div>
   );
 }
-
-function attachEvent<T extends HTMLElement>(
-  element: T | null,
-  handler: (e: WheelEvent) => void,
-) {
-  if (!element) return;
-
-  element.addEventListener('wheel', handler, { passive: false });
-
-  return () => {
-    element.removeEventListener('wheel', handler);
-  };
-}
-
-export default Viewport;
