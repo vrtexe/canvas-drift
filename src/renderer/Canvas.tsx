@@ -3,7 +3,7 @@ import type { ViewportRef } from '../Viewport';
 import type { RendererConfig } from './base';
 import { useAsyncMemo } from '../util/asyncMemo';
 import { createImageBitmapSafe } from '../util/image';
-import { type Transform } from 'canvas-drift';
+import { type Transform } from 'canvas-glide';
 
 export type CanvasProps = RendererConfig;
 

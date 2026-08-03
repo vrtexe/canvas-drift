@@ -3,8 +3,8 @@ import {
   type PointerEventHandler,
   type WheelEventHandler as ReactWheelEventHandler,
 } from 'react';
-import type { Point, Rect } from 'canvas-drift';
-import { createEngine } from 'canvas-drift';
+import type { Point, Rect } from 'canvas-glide';
+import { createEngine } from 'canvas-glide';
 import { createConstrainer } from './util/constraint';
 import { useCallback } from 'react';
 

@@ -1,4 +1,4 @@
-import type { Rect, Transform } from 'canvas-drift';
+import type { Rect, Transform } from 'canvas-glide';
 import type { ViewportRef } from '../Viewport';
 import { type Ref, type RefObject } from 'react';
 import type { LibHook } from '../useGlideCanvas';

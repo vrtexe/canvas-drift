@@ -1,4 +1,4 @@
-export * from 'canvas-drift';
+export * from 'canvas-glide';
 
 export * from './useGlideCanvas.ts';
 export * from './Viewport.tsx';

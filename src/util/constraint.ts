@@ -3,7 +3,7 @@ import {
   type Point,
   type PointConstrainer,
   type Rect,
-} from 'canvas-drift';
+} from 'canvas-glide';
 
 export const CONSTRAINT_THRESHOLD = 0;
 
