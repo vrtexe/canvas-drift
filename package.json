@@ -1,5 +1,5 @@
 {
-  "name": "canvas-glide",
+  "name": "@canvas-glide/react",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
