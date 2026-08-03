@@ -6,8 +6,8 @@ import {
   type Ref,
 } from 'react';
 
-import type { LibHook } from './useLib';
-import { attachEvent } from './util/event';
+import type { LibHook } from './useGlideCanvas';
+import { attachEvent } from '../util/event';
 
 export type ViewportRef = {
   getElement: () => HTMLDivElement | null;
@@ -35,16 +35,14 @@ export type ViewportProps = {
 // boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
 // border: '1px solid var(--color-border)',
 const defaultStyle: React.CSSProperties = {
-  background: 'transparent',
   width: '100%',
   height: '100%',
   position: 'relative',
+  background: 'transparent',
   overflow: 'hidden',
-  borderRadius: '12px',
   userSelect: 'none',
   touchAction: 'none',
   overscrollBehavior: 'contain',
-  willChange: 'auto',
 };
 
 export function Viewport({

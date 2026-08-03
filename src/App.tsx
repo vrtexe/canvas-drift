@@ -1,8 +1,8 @@
 import './App.css';
 import { useEffect, useRef, useState } from 'react';
-import { Renderer, type GlideCanvasHandle } from './GlideCanvas';
-import { GlideCanvas } from './GlideCanvas';
-import { useLocalStorageBlob } from './localStorageBlobHook';
+import { Renderer, type GlideCanvasHandle } from './lib/GlideCanvas';
+import { GlideCanvas } from './lib/GlideCanvas';
+import { useLocalStorageBlob } from './showcase/localStorageBlobHook';
 
 type Tab = (typeof Tab)[keyof typeof Tab];
 const Tab = Object.freeze({

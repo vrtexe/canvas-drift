@@ -5,10 +5,10 @@ import {
 } from 'react';
 import type { Point, Rect } from 'canvas-drift';
 import { createEngine } from 'canvas-drift';
-import { createConstrainer } from './util/constraint';
+import { createConstrainer } from '../util/constraint';
 import { useCallback } from 'react';
 
-type LibOptions = {
+export type LibOptions = {
   viewport: () => Rect | null;
   canvas: () => Rect | null;
   padding?: number;

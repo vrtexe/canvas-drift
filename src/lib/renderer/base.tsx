@@ -1,7 +1,7 @@
 import type { Rect, Transform } from 'canvas-drift';
 import type { ViewportRef } from '../Viewport';
 import { type Ref, type RefObject } from 'react';
-import type { LibHook } from '../useLib';
+import type { LibHook } from '../useGlideCanvas';
 
 export type CanvasRef = {
   getImageRect: () => Rect;

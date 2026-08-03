@@ -1,9 +1,8 @@
 import { useCallback, useImperativeHandle, useRef } from 'react';
-import styles from '../Canvas.module.css';
 import type { Transform } from 'canvas-drift';
 import type { RendererConfig } from './base';
-import { useAsyncMemo } from '../util/asyncMemo';
-import { createImageDataUrlSafe } from '../util/image';
+import { useAsyncMemo } from '../../util/asyncMemo';
+import { createImageDataUrlSafe } from '../../util/image';
 
 type HtmlCanvasProps = RendererConfig;
 
@@ -12,12 +11,13 @@ type HtmlCanvasProps = RendererConfig;
  * Zoom resizes the <img> element itself (the browser re-rasterizes at the
  * layout size, so it stays sharp — unlike transformed layers on Safari) and
  * pan is a programmatic scroll of an overflow:hidden box (an element does not
- * need visible scrollbars to be scrollable via scrollTo). The stage carries a
- * viewport of slack on every side so the image can be panned off-screen.
+ * need visible scrollbars to be scrollable via scrollTo). The img's padding
+ * carries one viewport of slack on every side — a scroll range only exists
+ * where a descendant box occupies it, and padding is part of the img's border
+ * box — so the image can be panned fully off-screen in every direction.
  */
 export function HtmlCanvas({ viewportRef, ref, lib, image }: HtmlCanvasProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const idealScale = useRef(1);
   const syncingOrigin = useRef(false);
@@ -44,30 +44,25 @@ export function HtmlCanvas({ viewportRef, ref, lib, image }: HtmlCanvasProps) {
   const draw = useCallback(
     (transform?: Transform) => {
       const scroller = scrollerRef.current;
-      const stage = canvasRef.current;
       const img = imgRef.current;
       const viewport = viewportRef?.current;
-      if (!transform || !scroller || !stage || !img?.naturalWidth || !viewport)
-        return;
+      if (!transform || !scroller || !img?.naturalWidth || !viewport) return;
 
       const { scale, origin } = transform;
       const width = img.naturalWidth * idealScale.current * scale;
       const height = img.naturalHeight * idealScale.current * scale;
 
-      // One viewport of slack on every side of the image: the stage is
-      // scaled size + 2×viewport, so the image can be panned fully
-      // off-screen before the scroll range clamps. This also makes negative
-      // origins (image smaller than viewport, centered) representable as
-      // scroll positions.
+      // One viewport of slack on every side of the image, carried by the
+      // img's own padding (box-sizing: content-box, so width stays the
+      // image size). The image can be panned fully off-screen before the
+      // scroll range clamps, and negative origins (image smaller than the
+      // viewport, centered) are representable as scroll positions.
       const padX = viewport.getClientWidth();
       const padY = viewport.getClientHeight();
 
-      stage.style.width = `${width + padX * 2}px`;
-      stage.style.height = `${height + padY * 2}px`;
       img.style.width = `${width}px`;
       img.style.height = `${height}px`;
-      img.style.left = `${padX}px`;
-      img.style.top = `${padY}px`;
+      img.style.padding = `${padY}px ${padX}px`;
       scroller.scrollTo(padX + origin.x * scale, padY + origin.y * scale);
 
       if (syncingOrigin.current || !lib) return;
@@ -123,31 +118,23 @@ export function HtmlCanvas({ viewportRef, ref, lib, image }: HtmlCanvasProps) {
     width: '100%',
     height: '100%',
     overflow: 'hidden',
-  };
-
-  const scrollCanvasStyle: React.CSSProperties = {
     position: 'relative',
   };
 
   const imageStyle: React.CSSProperties = {
-    position: 'absolute',
     display: 'block',
-    pointerEvents: 'none',
-    userSelect: 'none',
+    boxSizing: 'content-box',
   };
 
   return (
     <div style={scrollerStyle} ref={scrollerRef}>
-      <div style={scrollCanvasStyle} ref={canvasRef}>
-        <img
-          ref={imgRef}
-          src={imageSrc || undefined}
-          style={imageStyle}
-          className={styles.scrollImage}
-          draggable={false}
-          onLoad={onImageLoad}
-        />
-      </div>
+      <img
+        ref={imgRef}
+        src={imageSrc || undefined}
+        style={imageStyle}
+        draggable={false}
+        onLoad={onImageLoad}
+      />
     </div>
   );
 }

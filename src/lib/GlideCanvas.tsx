@@ -1,6 +1,6 @@
 import { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { ComponentType, Ref } from 'react';
-import useLib from './useLib';
+import useLib from './useGlideCanvas';
 import { Viewport, type ViewportRef } from './Viewport';
 import Canvas, {
   type CanvasProps as CanvasComponentProps,
