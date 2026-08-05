@@ -1,61 +1,60 @@
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
-import type { ComponentType, Ref } from "react";
+import type { Ref } from "react";
 import { useGlideCanvas, type GlideCanvasInstance, type GlideCanvasOptions } from "./useGlideCanvas";
 import { Viewport, type ViewportRef } from "./Viewport";
 import { Canvas } from "./renderer/Canvas";
 import { ImageCanvas } from "./renderer/ImageCanvas";
 import { HtmlCanvas } from "./renderer/HtmlCanvas";
 import type { ViewportOptions } from "./Viewport";
-import { Renderer, type BaseRenderConfig, type CanvasOptions, type CanvasRef, type RendererRef } from "./renderer/base";
+import { Renderer, type CanvasOptions, type RendererRef } from "./renderer/base";
 
 export type BaseGlideCanvasRef<R> = GlideCanvasInstance & {
   viewportRef?: ViewportRef | null;
   canvasRef?: R | null;
 };
-export type GlideCanvasRef<T extends Renderer> = BaseGlideCanvasRef<RendererRef[T]>;
+export type GlideCanvasRef<T extends Renderer = Renderer> = BaseGlideCanvasRef<RendererRef[T]>;
 
 export type BaseGlideCanvasProps = {
   config?: GlideCanvasOptions;
   viewportConfig?: ViewportOptions;
   image?: Blob | null;
+  ref?: Ref<GlideCanvasRef>;
 };
 
-export type GlideCanvasProps<C, R extends CanvasRef<any, any> = CanvasRef<Element, Element>> =
+/**
+ * Discriminated union over `renderer`: call sites with a literal renderer get
+ * their exact canvasConfig checked. The last arm supports a runtime-decided
+ * renderer (e.g. tab switching); it cannot accept canvasConfig, because no
+ * single config shape fits all renderers. For fully custom rendering, compose
+ * the primitives directly: useGlideCanvas + Viewport + your own component.
+ */
+export type GlideCanvasProps =
   | (BaseGlideCanvasProps & {
-      renderer: typeof Renderer.Canvas;
-      ref?: Ref<GlideCanvasRef<typeof Renderer.Canvas>>;
+      renderer?: typeof Renderer.Canvas;
       canvasConfig?: CanvasOptions<typeof Renderer.Canvas>;
     })
   | (BaseGlideCanvasProps & {
       renderer: typeof Renderer.Image;
-      ref?: Ref<GlideCanvasRef<typeof Renderer.Image>>;
       canvasConfig?: CanvasOptions<typeof Renderer.Image>;
     })
   | (BaseGlideCanvasProps & {
       renderer: typeof Renderer.Html;
-      ref?: Ref<GlideCanvasRef<typeof Renderer.Html>>;
       canvasConfig?: CanvasOptions<typeof Renderer.Html>;
     })
   | (BaseGlideCanvasProps & {
-      renderer?: null | undefined | typeof Renderer.Custom;
-      ref?: Ref<BaseGlideCanvasRef<R>>;
-      canvasConfig?: BaseRenderConfig<R> & C;
-      canvas?: ComponentType<BaseRenderConfig<R>>;
-    })
-  | (BaseGlideCanvasProps & {
-      renderer?: Renderer;
-      ref?: Ref<BaseGlideCanvasRef<R>>;
-      canvasConfig?: BaseRenderConfig<R> & C;
-      canvas?: ComponentType<BaseRenderConfig<R>>;
+      renderer: Renderer;
+      canvasConfig?: undefined;
     });
 
-export function GlideCanvas<C, R extends CanvasRef<any, any> = CanvasRef<Element, Element>>(
-  props: GlideCanvasProps<C, R>,
-) {
+export function GlideCanvas(props: GlideCanvasProps) {
   const viewportRef = useRef<ViewportRef>(null);
   const canvasRef = useRef<RendererRef[Renderer] | null>(null);
-  const customCanvasRef = !props.renderer || props.renderer === Renderer.Custom ? useRef<R | null>(null) : null;
+  const drawRafId = useRef<number | null>(null);
 
+  // A callback ref instead of a shared RefObject: each renderer's specific
+  // CanvasRef assigns soundly INTO the union-typed ref, whereas a RefObject
+  // typed as the union could not be handed to a renderer expecting only its
+  // own instantiation.
   const setCanvasRef = (instance: RendererRef[Renderer] | null) => {
     canvasRef.current = instance;
   };
@@ -78,7 +77,9 @@ export function GlideCanvas<C, R extends CanvasRef<any, any> = CanvasRef<Element
     state: {
       ...config?.state,
       onTransformChange(transform) {
-        canvasRef.current?.draw?.(transform);
+        scheduleDraw();
+
+        // canvasRef.current?.draw?.(transform);
         config?.state?.onTransformChange?.(transform);
       },
     },
@@ -86,32 +87,30 @@ export function GlideCanvas<C, R extends CanvasRef<any, any> = CanvasRef<Element
 
   function onViewportResize(viewportRef: ViewportRef) {
     canvasRef.current?.handleViewportResize?.(viewportRef);
+    props.viewportConfig?.onResize?.(viewportRef);
   }
 
-  useEffect(() => {
-    const id = setTimeout(() => lib.reset(), 100);
-    return () => clearTimeout(id);
-  }, []);
+  useImperativeHandle(props.ref, () => ({
+    viewportRef: viewportRef.current,
+    canvasRef: canvasRef.current,
+    ...lib,
+  }));
 
-  function setRef<T extends Ref<GlideCanvasRef<R>>, R extends Renderer>(ref: T) {
-    useImperativeHandle(ref, () => {
-      return {
-        viewportRef: viewportRef.current,
-        canvasRef: canvasRef.current as RendererRef[R],
-        ...lib,
-      };
+  function scheduleDraw() {
+    if (drawRafId.current !== null) return; // one already queued
+    drawRafId.current = requestAnimationFrame(() => {
+      drawRafId.current = null;
+      const transform = lib.stateService.getTransform();
+      canvasRef.current?.draw?.(transform);
+      config?.state?.onTransformChange?.(transform);
     });
   }
 
-  if (props.renderer && props.ref) {
-    setRef(props.ref);
-  } else if (!props.renderer && props.canvas) {
-    useImperativeHandle(props.ref, () => ({
-      viewportRef: viewportRef.current,
-      canvasRef: customCanvasRef?.current,
-      ...lib,
-    }));
-  }
+  useEffect(() => {
+    return () => {
+      if (drawRafId.current !== null) cancelAnimationFrame(drawRafId.current);
+    };
+  }, []);
 
   return (
     <Viewport
@@ -121,47 +120,27 @@ export function GlideCanvas<C, R extends CanvasRef<any, any> = CanvasRef<Element
         ...props.viewportConfig?.style,
         cursor: isMoving ? "grabbing" : lib ? "grab" : "default",
       }}
-      onResize={onViewportResize}
       {...props.viewportConfig}
+      onResize={onViewportResize}
     >
-      {!props.renderer && props.canvas ? (
-        <props.canvas
-          ref={customCanvasRef}
+      {props.renderer === Renderer.Image ? (
+        <ImageCanvas
           viewportRef={viewportRef}
+          ref={setCanvasRef}
+          lib={lib}
+          image={props.image}
+          {...props.canvasConfig}
+        />
+      ) : props.renderer === Renderer.Html ? (
+        <HtmlCanvas
+          viewportRef={viewportRef}
+          ref={setCanvasRef}
           lib={lib}
           image={props.image}
           {...props.canvasConfig}
         />
       ) : (
-        <>
-          {props.renderer === Renderer.Image && (
-            <ImageCanvas
-              viewportRef={viewportRef}
-              ref={setCanvasRef}
-              lib={lib}
-              image={props.image}
-              {...props.canvasConfig}
-            />
-          )}{" "}
-          {props.renderer === Renderer.Html && (
-            <HtmlCanvas
-              viewportRef={viewportRef}
-              ref={setCanvasRef}
-              lib={lib}
-              image={props.image}
-              {...props.canvasConfig}
-            />
-          )}
-          {props.renderer === Renderer.Canvas && (
-            <Canvas
-              viewportRef={viewportRef}
-              ref={setCanvasRef}
-              lib={lib}
-              image={props.image}
-              {...props.canvasConfig}
-            />
-          )}
-        </>
+        <Canvas viewportRef={viewportRef} ref={setCanvasRef} lib={lib} image={props.image} {...props.canvasConfig} />
       )}
     </Viewport>
   );

@@ -1,4 +1,4 @@
-import { useRef, type PointerEventHandler, type WheelEventHandler as ReactWheelEventHandler } from "react";
+import { useMemo, useRef, type PointerEventHandler, type WheelEventHandler as ReactWheelEventHandler } from "react";
 import type { CanvasEngine, CanvasEngineOptions } from "canvas-glide";
 import { createEngine } from "canvas-glide";
 import { createConstrainer } from "./util/constraint";
@@ -64,15 +64,18 @@ export function useGlideCanvas(config: GlideCanvasOptions): GlideCanvasInstance 
 
   const engine = engineRef.current;
 
-  return {
-    ...engine,
-    engine,
+  return useMemo(
+    () => ({
+      ...engine,
+      engine,
 
-    onPointerDown: engine.event.onPointerDown as unknown as PointerEventHandler<Element> &
-      PointerDownEventHandler<Element>,
-    onPointerMove: engine.event.onPointerMove as unknown as PointerEventHandler<Element> &
-      PointerMoveEventHandler<Element>,
-    onPointerUp: engine.event.onPointerUp as unknown as PointerEventHandler<Element> & PointerUpEventHandler<Element>,
-    onWheel: engine.event.onWheel as unknown as ReactWheelEventHandler<HTMLDivElement> & WheelEventHandler<Element>,
-  };
+      onPointerDown: engine.event.onPointerDown as unknown as PointerEventHandler<Element> &
+        PointerDownEventHandler<Element>,
+      onPointerMove: engine.event.onPointerMove as unknown as PointerEventHandler<Element> &
+        PointerMoveEventHandler<Element>,
+      onPointerUp: engine.event.onPointerUp as unknown as PointerEventHandler<Element> & PointerUpEventHandler<Element>,
+      onWheel: engine.event.onWheel as unknown as ReactWheelEventHandler<HTMLDivElement> & WheelEventHandler<Element>,
+    }),
+    [engine],
+  );
 }

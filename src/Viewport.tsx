@@ -12,12 +12,12 @@ export type ViewportRef = {
 };
 
 export type ViewportOptions = Omit<HTMLProps<HTMLDivElement>, "ref"> & {
-  ref: Ref<ViewportRef>;
   onResize?: (ref: ViewportRef) => void;
 
   pointerDownEnabled?: boolean;
   pointerMoveEnabled?: boolean;
   pointerUpEnabled?: boolean;
+  pointerCancelEnabled?: boolean;
   wheelEnabled?: boolean;
 };
 
@@ -48,11 +48,13 @@ export function Viewport({
   pointerDownEnabled = true,
   pointerMoveEnabled = true,
   pointerUpEnabled = true,
+  pointerCancelEnabled = true,
   wheelEnabled = true,
 
   ...rest
 }: PropsWithChildren<ViewportProps>) {
   const elementRef = useRef<HTMLDivElement>(null);
+  const rect = useRef(elementRef?.current?.getBoundingClientRect());
 
   const combineStyles: React.CSSProperties = {
     ...defaultStyle,
@@ -78,6 +80,7 @@ export function Viewport({
     if (!elementRef.current) return;
 
     function updateCanvasSize() {
+      rect.current = elementRef?.current?.getBoundingClientRect();
       onResize?.(dataRef.current);
     }
     const ro = new ResizeObserver(updateCanvasSize);
@@ -92,7 +95,7 @@ export function Viewport({
     getClientHeight: () => elementRef.current?.clientHeight || 0,
     getWidth: getViewportWidth,
     getHeight: getViewportHeight,
-    getRect: () => elementRef?.current?.getBoundingClientRect() || null,
+    getRect: () => rect.current || null,
   });
 
   useImperativeHandle(ref, () => dataRef.current);
@@ -105,6 +108,7 @@ export function Viewport({
       onPointerDown={pointerDownEnabled ? lib?.onPointerDown : undefined}
       onPointerMove={pointerMoveEnabled ? lib?.onPointerMove : undefined}
       onPointerUp={pointerUpEnabled ? lib?.onPointerUp : undefined}
+      onPointerCancel={pointerCancelEnabled ? lib?.onPointerUp : undefined}
       {...rest}
     >
       {children}

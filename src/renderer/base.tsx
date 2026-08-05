@@ -1,6 +1,6 @@
 import type { Rect, Transform } from "canvas-glide";
 import type { ViewportRef } from "../Viewport";
-import { type HTMLProps, type Ref, type RefObject } from "react";
+import { type HTMLProps, type ReactNode, type Ref, type RefObject } from 'react';
 import type { GlideCanvasInstance } from "../useGlideCanvas";
 
 export type CanvasRef<T, C> = {
@@ -16,9 +16,12 @@ export type RendererComponentProps<T> = HTMLProps<T> & {
   style?: React.CSSProperties;
 };
 
+
 export type RendererProps<R extends Renderer, T = unknown, C = unknown> = {
   content?: RendererComponentProps<T>;
   container?: RendererComponentProps<C>;
+  
+  children?: ReactNode | undefined;
   afterDraw?: (transform?: Transform, data?: RendererRef[R]) => void;
 };
 
@@ -26,7 +29,6 @@ export type RendererPropsMap = {
   [Renderer.Canvas]: RendererProps<typeof Renderer.Canvas, HTMLCanvasElement, HTMLCanvasElement>;
   [Renderer.Image]: RendererProps<typeof Renderer.Image, HTMLImageElement, HTMLDivElement>;
   [Renderer.Html]: RendererProps<typeof Renderer.Html, HTMLImageElement, HTMLDivElement>;
-  [Renderer.Custom]: RendererProps<typeof Renderer.Custom, HTMLElement, HTMLElement>;
 };
 
 export type BaseRenderConfig<R> = {
@@ -41,7 +43,6 @@ export type RendererRef = {
   [Renderer.Canvas]: CanvasRef<HTMLCanvasElement, HTMLCanvasElement>;
   [Renderer.Image]: CanvasRef<HTMLImageElement, HTMLDivElement>;
   [Renderer.Html]: CanvasRef<HTMLImageElement, HTMLDivElement>;
-  [Renderer.Custom]: never;
 };
 
 export type Renderer = (typeof Renderer)[keyof typeof Renderer];
@@ -49,7 +50,6 @@ export const Renderer = Object.freeze({
   Canvas: "canvas",
   Image: "image",
   Html: "html",
-  Custom: "custom",
 } as const);
 
 export type CanvasOptions<T extends Renderer> = RendererPropsMap[T];
