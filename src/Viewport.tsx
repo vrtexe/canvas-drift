@@ -1,13 +1,6 @@
-import {
-  useEffect,
-  useImperativeHandle,
-  useRef,
-  type PropsWithChildren,
-  type Ref,
-} from 'react';
-
-import type { LibHook } from './useGlideCanvas';
-import { attachEvent } from './util/event';
+import { useEffect, useImperativeHandle, useRef, type HTMLProps, type PropsWithChildren, type Ref } from "react";
+import type { GlideCanvasInstance } from "./useGlideCanvas";
+import { attachEvent } from "./util/event";
 
 export type ViewportRef = {
   getElement: () => HTMLDivElement | null;
@@ -18,12 +11,8 @@ export type ViewportRef = {
   getHeight: () => number;
 };
 
-export type ViewportProps = {
-  ref?: Ref<ViewportRef>;
-  style?: React.CSSProperties;
-  className?: string;
-  lib?: LibHook;
-
+export type ViewportOptions = Omit<HTMLProps<HTMLDivElement>, "ref"> & {
+  ref: Ref<ViewportRef>;
   onResize?: (ref: ViewportRef) => void;
 
   pointerDownEnabled?: boolean;
@@ -32,17 +21,20 @@ export type ViewportProps = {
   wheelEnabled?: boolean;
 };
 
-// boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-// border: '1px solid var(--color-border)',
+export type ViewportProps = ViewportOptions & {
+  ref?: Ref<ViewportRef>;
+  lib?: GlideCanvasInstance;
+};
+
 const defaultStyle: React.CSSProperties = {
-  width: '100%',
-  height: '100%',
-  position: 'relative',
-  background: 'transparent',
-  overflow: 'hidden',
-  userSelect: 'none',
-  touchAction: 'none',
-  overscrollBehavior: 'contain',
+  width: "100%",
+  height: "100%",
+  position: "relative",
+  background: "transparent",
+  overflow: "hidden",
+  userSelect: "none",
+  touchAction: "none",
+  overscrollBehavior: "contain",
 };
 
 export function Viewport({
@@ -57,6 +49,8 @@ export function Viewport({
   pointerMoveEnabled = true,
   pointerUpEnabled = true,
   wheelEnabled = true,
+
+  ...rest
 }: PropsWithChildren<ViewportProps>) {
   const elementRef = useRef<HTMLDivElement>(null);
 
@@ -110,7 +104,9 @@ export function Viewport({
       style={combineStyles}
       onPointerDown={pointerDownEnabled ? lib?.onPointerDown : undefined}
       onPointerMove={pointerMoveEnabled ? lib?.onPointerMove : undefined}
-      onPointerUp={pointerUpEnabled ? lib?.onPointerUp : undefined}>
+      onPointerUp={pointerUpEnabled ? lib?.onPointerUp : undefined}
+      {...rest}
+    >
       {children}
     </div>
   );

@@ -1,10 +1,10 @@
-import { useCallback, useImperativeHandle, useRef } from 'react';
-import type { Transform } from 'canvas-glide';
-import type { RendererConfig } from './base';
-import { useAsyncMemo } from '../util/asyncMemo';
-import { createImageDataUrlSafe } from '../util/image';
+import { useCallback, useImperativeHandle, useRef } from "react";
+import type { Transform } from "canvas-glide";
+import type { Renderer, RendererConfig, RendererRef } from "./base";
+import { useAsyncMemo } from "../util/asyncMemo";
+import { createImageDataUrlSafe } from "../util/image";
 
-type HtmlCanvasProps = RendererConfig;
+export type HtmlRendererProps = RendererConfig<typeof Renderer.Html>;
 
 /**
  * Scroll-based renderer: no CSS transforms and no <canvas>.
@@ -16,11 +16,12 @@ type HtmlCanvasProps = RendererConfig;
  * where a descendant box occupies it, and padding is part of the img's border
  * box — so the image can be panned fully off-screen in every direction.
  */
-export function HtmlCanvas({ viewportRef, ref, lib, image }: HtmlCanvasProps) {
+export function HtmlCanvas({ viewportRef, afterDraw, ref, image, lib, container, content }: HtmlRendererProps) {
+  const { style: containerStyle, ref: _unused_container, ...containerRest } = container ?? {};
+  const { style: contentStyle, ref: _unused_content, ...contentRest } = content ?? {};
   const scrollerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const idealScale = useRef(1);
-  const syncingOrigin = useRef(false);
 
   const imageSrc = useAsyncMemo(() => createImageDataUrlSafe(image), [image]);
 
@@ -31,10 +32,7 @@ export function HtmlCanvas({ viewportRef, ref, lib, image }: HtmlCanvasProps) {
     const imgWidth = imgRef.current.naturalWidth;
     const imgHeight = imgRef.current.naturalHeight;
 
-    return Math.min(
-      viewportElement.getClientWidth() / imgWidth,
-      viewportElement.getClientHeight() / imgHeight,
-    );
+    return Math.min(viewportElement.getClientWidth() / imgWidth, viewportElement.getClientHeight() / imgHeight);
   }, []);
 
   function updateIdealScale() {
@@ -65,21 +63,7 @@ export function HtmlCanvas({ viewportRef, ref, lib, image }: HtmlCanvasProps) {
       img.style.padding = `${padY}px ${padX}px`;
       scroller.scrollTo(padX + origin.x * scale, padY + origin.y * scale);
 
-      if (syncingOrigin.current || !lib) return;
-
-      // The browser clamps the scroll position to the scrollable range. Feed
-      // the clamped value back into the engine so its origin cannot drift
-      // past the padded range (which would create a dead zone when panning
-      // back).
-      const next = {
-        x: (scroller.scrollLeft - padX) / scale,
-        y: (scroller.scrollTop - padY) / scale,
-      };
-      if (next.x !== origin.x || next.y !== origin.y) {
-        syncingOrigin.current = true;
-        lib.stateService.setOrigin(next);
-        syncingOrigin.current = false;
-      }
+      afterDraw?.(transform, externalRef);
     },
     [lib, viewportRef],
   );
@@ -98,9 +82,10 @@ export function HtmlCanvas({ viewportRef, ref, lib, image }: HtmlCanvasProps) {
     redraw();
   }
 
-  useImperativeHandle(ref, () => ({
+  const externalRef: RendererRef[typeof Renderer.Html] = {
+    getContainerRef: () => scrollerRef.current,
+    getContentRef: () => imgRef.current,
     draw,
-    redraw,
     handleViewportResize,
     getImageRect: () => ({
       x: scrollerRef.current?.offsetLeft || 0,
@@ -108,32 +93,33 @@ export function HtmlCanvas({ viewportRef, ref, lib, image }: HtmlCanvasProps) {
       width: (imgRef.current?.naturalWidth || 0) * idealScale.current,
       height: (imgRef.current?.naturalHeight || 0) * idealScale.current,
     }),
-    zoomIn: () => lib?.scaleService.zoomIn(),
-    zoomOut: () => lib?.scaleService.zoomOut(),
-    center: () => lib?.center(),
-    fit: () => lib?.fit(),
-  }));
+  };
+
+  useImperativeHandle(ref, () => externalRef);
 
   const scrollerStyle: React.CSSProperties = {
-    width: '100%',
-    height: '100%',
-    overflow: 'hidden',
-    position: 'relative',
+    width: "100%",
+    height: "100%",
+    overflow: "hidden",
+    position: "relative",
+    ...containerStyle,
   };
 
   const imageStyle: React.CSSProperties = {
-    display: 'block',
-    boxSizing: 'content-box',
+    display: "block",
+    boxSizing: "content-box",
+    ...contentStyle,
   };
 
   return (
-    <div style={scrollerStyle} ref={scrollerRef}>
+    <div style={scrollerStyle} ref={scrollerRef} {...containerRest}>
       <img
         ref={imgRef}
         src={imageSrc || undefined}
         style={imageStyle}
         draggable={false}
         onLoad={onImageLoad}
+        {...contentRest}
       />
     </div>
   );

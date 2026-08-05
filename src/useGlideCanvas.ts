@@ -1,21 +1,9 @@
-import {
-  useRef,
-  type PointerEventHandler,
-  type WheelEventHandler as ReactWheelEventHandler,
-} from 'react';
-import type { Point, Rect } from 'canvas-glide';
-import { createEngine } from 'canvas-glide';
-import { createConstrainer } from './util/constraint';
-import { useCallback } from 'react';
+import { useRef, type PointerEventHandler, type WheelEventHandler as ReactWheelEventHandler } from "react";
+import type { CanvasEngine, CanvasEngineOptions } from "canvas-glide";
+import { createEngine } from "canvas-glide";
+import { createConstrainer } from "./util/constraint";
 
-export type LibOptions = {
-  viewport: () => Rect | null;
-  canvas: () => Rect | null;
-  padding?: number;
-  constrainOrigin?: (origin: Point) => Point;
-  onTransform?: (transform: { origin: Point; scale: number }) => void;
-  onIsMovingChange?: (isMoving: boolean) => void;
-};
+export type GlideCanvasOptions = CanvasEngineOptions;
 
 export type BaseElement = Element;
 export type DomEventListener<
@@ -24,103 +12,67 @@ export type DomEventListener<
   E extends HTMLElementEventMap = HTMLElementEventMap,
 > = (this: T, ev: E[K]) => unknown;
 
-export type PointerDownEventHandler<T extends BaseElement> = DomEventListener<
-  T,
-  'pointerdown'
->;
+export type PointerDownEventHandler<T extends BaseElement> = DomEventListener<T, "pointerdown">;
+export type PointerUpEventHandler<T extends BaseElement> = DomEventListener<T, "pointerup">;
+export type PointerMoveEventHandler<T extends BaseElement> = DomEventListener<T, "pointermove">;
+export type WheelEventHandler<T extends BaseElement> = DomEventListener<T, "wheel">;
 
-export type PointerUpEventHandler<T extends BaseElement> = DomEventListener<
-  T,
-  'pointerup'
->;
+export type GlideCanvasInstance = CanvasEngine & {
+  engine: CanvasEngine;
 
-export type PointerMoveEventHandler<T extends BaseElement> = DomEventListener<
-  T,
-  'pointermove'
->;
-
-export type WheelEventHandler<T extends BaseElement> = DomEventListener<
-  T,
-  'wheel'
->;
-
-export type LibHook = {
-  reset: () => void;
-  fit: () => void;
-  center: () => void;
-
-  stateService: ReturnType<typeof createEngine>['stateService'];
-  scaleService: ReturnType<typeof createEngine>['scaleService'];
-  moveService: ReturnType<typeof createEngine>['moveService'];
-
-  onPointerDown: PointerEventHandler<Element> &
-    PointerDownEventHandler<Element>;
-  onPointerMove: PointerEventHandler<Element> &
-    PointerMoveEventHandler<Element>;
+  onPointerDown: PointerEventHandler<Element> & PointerDownEventHandler<Element>;
+  onPointerMove: PointerEventHandler<Element> & PointerMoveEventHandler<Element>;
   onPointerUp: PointerEventHandler<Element> & PointerUpEventHandler<Element>;
   onWheel: ReactWheelEventHandler<HTMLDivElement> & WheelEventHandler<Element>;
 };
 
-export default function useLib({
-  viewport,
-  canvas,
-  constrainOrigin,
-  onIsMovingChange,
-  onTransform,
-}: LibOptions): LibHook {
-  const engineRef = useRef<ReturnType<typeof createEngine> | null>(null);
+export function useGlideCanvas(config: GlideCanvasOptions): GlideCanvasInstance {
+  const engineRef = useRef<CanvasEngine | null>(null);
 
-  const constrainer = useCallback(
-    createConstrainer({
-      getCanvasRect: canvas,
-      getViewportRect: viewport,
-      getScale: () => engine.stateService.getScale(),
-    }),
-    [canvas, viewport],
-  );
+  const configRef = useRef(config);
+  configRef.current = config;
 
   if (engineRef.current === null) {
+    const constrainer = createConstrainer({
+      getViewportRect: () => configRef.current.getViewportRect(),
+      getCanvasRect: () => configRef.current.getCanvasRect(),
+      getScale: () => engineRef.current!.getScale(),
+    });
+
     engineRef.current = createEngine({
-      move: {
-        onIsMovingChange: (isMoving) => onIsMovingChange?.(isMoving),
+      constraints: {
+        origin: {
+          enabled: true,
+          constrain: constrainer,
+        },
       },
-      viewport: viewport,
-      canvas: canvas,
-      constraints: constrainOrigin
-        ? {
-            origin: {
-              enabled: true,
-              constrain: constrainer,
-            },
-          }
-        : undefined,
+      ...config,
+      getViewportRect: () => configRef.current.getViewportRect(),
+      getCanvasRect: () => configRef.current.getCanvasRect(),
       state: {
-        onTransformChange: (transform) => onTransform?.(transform),
+        ...config.state,
+        onTransformChange: (t) => configRef.current.state?.onTransformChange?.(t),
+        onScaleChange: (s) => configRef.current.state?.onScaleChange?.(s),
+        onOriginChange: (o) => configRef.current.state?.onOriginChange?.(o),
+      },
+      move: {
+        ...config.move,
+        onIsMovingChange: (v) => configRef.current.move?.onIsMovingChange?.(v),
       },
     });
   }
+
   const engine = engineRef.current;
 
   return {
-    reset: engine.reset,
-    fit: engine.fit,
-    center: engine.center,
+    ...engine,
+    engine,
 
-    stateService: engine.stateService,
-    scaleService: engine.scaleService,
-    moveService: engine.moveService,
-
-    onPointerDown: engine.event
-      .onPointerDown as unknown as PointerEventHandler<Element> &
+    onPointerDown: engine.event.onPointerDown as unknown as PointerEventHandler<Element> &
       PointerDownEventHandler<Element>,
-    onPointerMove: engine.event
-      .onPointerMove as unknown as PointerEventHandler<Element> &
+    onPointerMove: engine.event.onPointerMove as unknown as PointerEventHandler<Element> &
       PointerMoveEventHandler<Element>,
-    onPointerUp: engine.event
-      .onPointerUp as unknown as PointerEventHandler<Element> &
-      PointerUpEventHandler<Element>,
-    onWheel: engine.event
-      .onWheel as unknown as ReactWheelEventHandler<HTMLDivElement> &
-      WheelEventHandler<Element>,
+    onPointerUp: engine.event.onPointerUp as unknown as PointerEventHandler<Element> & PointerUpEventHandler<Element>,
+    onWheel: engine.event.onWheel as unknown as ReactWheelEventHandler<HTMLDivElement> & WheelEventHandler<Element>,
   };
 }

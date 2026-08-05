@@ -1,43 +1,31 @@
-import {
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-  useState,
-} from 'react';
-import { type Transform } from 'canvas-glide';
-import type { ViewportRef } from '../Viewport';
-import type { RendererConfig } from './base';
-import { useAsyncMemo } from '../util/asyncMemo';
-import { createImageDataUrlSafe } from '../util/image';
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { type Transform } from "canvas-glide";
+import type { ViewportRef } from "../Viewport";
+import type { Renderer, RendererConfig, RendererRef } from "./base";
+import { useAsyncMemo } from "../util/asyncMemo";
+import { createImageDataUrlSafe } from "../util/image";
 
-export type CanvasImgProps = RendererConfig;
+export type ImageRendererProps = RendererConfig<typeof Renderer.Image>;
 
 const defaultImageCanvasStyle: React.CSSProperties = {
-  position: 'relative',
-  transformOrigin: 'top left',
+  position: "relative",
+  transformOrigin: "top left",
 } as const;
 
 const defaultImageStyle: React.CSSProperties = {
-  display: 'block',
-  height: '100%',
-  width: '100%',
+  display: "block",
+  height: "100%",
+  width: "100%",
 };
 
-export function ImageCanvas({
-  viewportRef,
-  ref,
-  lib,
-  image,
-  style,
-  className,
-}: CanvasImgProps) {
+export function ImageCanvas({ viewportRef, afterDraw, ref, image, lib, container, content }: ImageRendererProps) {
+  const { style: contentStyle, ref: _unused_content, ...contentRest } = content ?? {};
+  const { style: containerStyle, ref: _unused_container, ...containerRest } = container ?? {};
   const canvasRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const idealScale = useRef(1);
 
-  const [imageVisibility, setImageVisibility] =
-    useState<React.CSSProperties['visibility']>('hidden');
+  const [imageVisibility, setImageVisibility] = useState<React.CSSProperties["visibility"]>("hidden");
 
   const imageSrc = useAsyncMemo(() => createImageDataUrlSafe(image), [image]);
 
@@ -51,8 +39,10 @@ export function ImageCanvas({
       setTransformStyle({
         transform: `scale(${transform.scale}) translate(${-transform.origin.x}px, ${-transform.origin.y}px)`,
       });
+
+      afterDraw?.(transform, externalRef);
     },
-    [setTransformStyle],
+    [setTransformStyle, afterDraw],
   );
 
   const updateSize = useCallback(() => {
@@ -69,10 +59,7 @@ export function ImageCanvas({
     const imgWidth = imgRef.current.naturalWidth;
     const imgHeight = imgRef.current.naturalHeight;
 
-    return Math.min(
-      viewportElement.getClientWidth() / imgWidth,
-      viewportElement.getClientHeight() / imgHeight,
-    );
+    return Math.min(viewportElement.getClientWidth() / imgWidth, viewportElement.getClientHeight() / imgHeight);
   }, []);
 
   function updateIdealScale() {
@@ -91,12 +78,9 @@ export function ImageCanvas({
     updateIdealScale();
     updateSize();
     redraw();
-    setImageVisibility('visible');
+    setImageVisibility("visible");
   }
 
-  // Data-URL/cached images can finish loading before React attaches the
-  // onLoad listener — the event is then never delivered and the image would
-  // stay hidden. Run the load handler manually when already complete.
   useEffect(() => {
     if (imgRef.current?.complete && imgRef.current.naturalWidth) {
       onImageLoad();
@@ -110,12 +94,13 @@ export function ImageCanvas({
   const canvasStyle: React.CSSProperties = {
     ...defaultImageCanvasStyle,
     ...transformStyle,
-    ...style,
+    ...containerStyle,
   };
 
-  useImperativeHandle(ref, () => ({
+  const externalRef: RendererRef[typeof Renderer.Image] = {
+    getContainerRef: () => canvasRef.current,
+    getContentRef: () => imgRef.current,
     draw,
-    redraw,
     handleViewportResize,
     getImageRect: () => ({
       x: canvasRef.current?.offsetLeft || 0,
@@ -123,18 +108,18 @@ export function ImageCanvas({
       width: (imgRef.current?.naturalWidth || 0) * idealScale.current,
       height: (imgRef.current?.naturalHeight || 0) * idealScale.current,
     }),
-    zoomIn: () => lib?.scaleService.zoomIn(),
-    zoomOut: () => lib?.scaleService.zoomOut(),
-    center: () => lib?.center(),
-    fit: () => lib?.fit(),
-  }));
+  };
+
+  useImperativeHandle(ref, () => externalRef);
 
   const imageStyle: React.CSSProperties = {
     ...defaultImageStyle,
     visibility: imageVisibility,
+    ...contentStyle,
   };
+
   return (
-    <div ref={canvasRef} className={className} style={canvasStyle}>
+    <div ref={canvasRef} style={canvasStyle} {...containerRest}>
       <img
         hidden={!imageSrc}
         style={imageStyle}
@@ -142,6 +127,7 @@ export function ImageCanvas({
         src={imageSrc || undefined}
         draggable={false}
         onLoad={onImageLoad}
+        {...contentRest}
       />
     </div>
   );

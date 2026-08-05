@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:dev": "tsc -b && vite build --watch",
     "lint": "oxlint",
     "preview": "vite preview"
   },
@@ -19,8 +20,8 @@
   ],
   "exports": {
     ".": {
-      "default": "./dist/canvas-glide.js",
-      "types": "./dist/canvas-glide.d.ts"
+      "types": "./dist/canvas-glide.d.ts",
+      "default": "./dist/canvas-glide.js"
     }
   },
   "devDependencies": {
