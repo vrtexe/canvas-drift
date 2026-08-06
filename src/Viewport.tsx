@@ -1,6 +1,6 @@
 import { useEffect, useImperativeHandle, useRef, type HTMLProps, type PropsWithChildren, type Ref } from "react";
 import type { GlideCanvasInstance } from "./useGlideCanvas";
-import { attachEvent } from "./util/event";
+import { attachEvent, attachWheelEvent } from "./util/event";
 
 export type ViewportRef = {
   getElement: () => HTMLDivElement | null;
@@ -55,6 +55,8 @@ export function Viewport({
 }: PropsWithChildren<ViewportProps>) {
   const elementRef = useRef<HTMLDivElement>(null);
   const rect = useRef(elementRef?.current?.getBoundingClientRect());
+  const onResizeRef = useRef(onResize);
+  onResizeRef.current = onResize;
 
   const combineStyles: React.CSSProperties = {
     ...defaultStyle,
@@ -73,21 +75,28 @@ export function Viewport({
 
   useEffect(() => {
     if (lib?.onWheel === undefined || wheelEnabled === false) return;
-    return attachEvent(elementRef.current, lib.onWheel, { passive: false });
+    return attachWheelEvent(elementRef.current, lib.onWheel, { passive: false });
   }, [lib?.onWheel]);
 
   useEffect(() => {
     if (!elementRef.current) return;
 
     function updateCanvasSize() {
-      rect.current = elementRef?.current?.getBoundingClientRect();
-      onResize?.(dataRef.current);
+      updateRect();
+      onResizeRef.current?.(dataRef.current);
     }
+
     const ro = new ResizeObserver(updateCanvasSize);
     ro.observe(elementRef.current);
 
     return () => ro.disconnect();
   }, []);
+
+  function updateRect() {
+    rect.current = elementRef.current?.getBoundingClientRect();
+  }
+
+  useEffect(() => attachEvent("scroll", window, updateRect, { capture: true, passive: true }), []);
 
   const dataRef = useRef<ViewportRef>({
     getElement: () => elementRef.current,

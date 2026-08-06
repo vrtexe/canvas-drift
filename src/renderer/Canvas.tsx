@@ -34,7 +34,7 @@ export function Canvas({ viewportRef, ref, afterDraw, image, lib, container, con
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const offscreenCanvas = useRef<OffscreenCanvas>(new OffscreenCanvas(0, 0));
-  const canvasContext = useRef(canvasRef?.current?.getContext("2d"));
+  const canvasContext = useRef<CanvasRenderingContext2D | null>(null);
 
   function applySmoothing(ctx: CanvasRenderingContext2D) {
     ctx.imageSmoothingEnabled = true;
@@ -42,7 +42,8 @@ export function Canvas({ viewportRef, ref, afterDraw, image, lib, container, con
   }
 
   useEffect(() => {
-    canvasContext.current = canvasRef?.current?.getContext("2d");
+    if (canvasContext.current) return;
+    canvasContext.current = canvasRef?.current?.getContext("2d") || null;
     canvasContext.current && applySmoothing(canvasContext.current);
   }, []);
 

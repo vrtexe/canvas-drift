@@ -7,6 +7,7 @@ import { ImageCanvas } from "./renderer/ImageCanvas";
 import { HtmlCanvas } from "./renderer/HtmlCanvas";
 import type { ViewportOptions } from "./Viewport";
 import { Renderer, type CanvasOptions, type RendererRef } from "./renderer/base";
+import { copyTransform } from "canvas-glide";
 
 export type BaseGlideCanvasRef<R> = GlideCanvasInstance & {
   viewportRef?: ViewportRef | null;
@@ -76,11 +77,8 @@ export function GlideCanvas(props: GlideCanvasProps) {
     },
     state: {
       ...config?.state,
-      onTransformChange(transform) {
+      onTransformChange() {
         scheduleDraw();
-
-        // canvasRef.current?.draw?.(transform);
-        config?.state?.onTransformChange?.(transform);
       },
     },
   });
@@ -102,7 +100,7 @@ export function GlideCanvas(props: GlideCanvasProps) {
       drawRafId.current = null;
       const transform = lib.stateService.getTransform();
       canvasRef.current?.draw?.(transform);
-      config?.state?.onTransformChange?.(transform);
+      config?.state?.onTransformChange?.(copyTransform(transform));
     });
   }
 
@@ -116,11 +114,11 @@ export function GlideCanvas(props: GlideCanvasProps) {
     <Viewport
       ref={viewportRef}
       lib={lib}
-      style={{
-        ...props.viewportConfig?.style,
-        cursor: isMoving ? "grabbing" : lib ? "grab" : "default",
-      }}
       {...props.viewportConfig}
+      style={{
+        cursor: isMoving ? "grabbing" : lib ? "grab" : "default",
+        ...props.viewportConfig?.style,
+      }}
       onResize={onViewportResize}
     >
       {props.renderer === Renderer.Image ? (
